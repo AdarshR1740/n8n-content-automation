@@ -1,0 +1,800 @@
+{
+  "name": "Content Engine 2.0 - Production",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PHYdX7GEecd_axlOd6lTEGr0Dxv3DrYcFFZ9Xc_M6no/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PHYdX7GEecd_axlOd6lTEGr0Dxv3DrYcFFZ9Xc_M6no/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "options": {
+          "columnsToWatch": [
+            "action"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        -544
+      ],
+      "id": "d4025673-bc0e-47ac-b116-8c5c49430376",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "80cJyqs2uhrJm7Rh",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "60c1262d-630e-460b-bcd1-92835c1a9c0d",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "generate",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "9309d6eb-81cf-41ca-9028-1e19b0be6937",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "regenerate",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -208,
+        -544
+      ],
+      "id": "4ebbedee-696b-4b24-8914-fdbef621c4dd",
+      "name": "Filter Affected Rows"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        16,
+        -800
+      ],
+      "id": "659a0f6f-9c91-43c9-9d4d-75d0f82789ef",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst errors = [];\n\nif (!input.article_id && input.article_id !== 0) {\n  errors.push('article_id is missing');\n}\nif (!input.primary_keyword || String(input.primary_keyword).trim() === '') {\n  errors.push('primary_keyword is missing or empty');\n}\n\nconst validProviders = ['ollama', 'gemini', 'claude', 'chatgpt'];\nif (!validProviders.includes(input.ai_provider)) {\n  errors.push(`ai_provider \"${input.ai_provider}\" is not one of: ${validProviders.join(', ')}`);\n}\n\nconst validAudiences = ['innovation_manager', 'c_level_exec'];\nif (!validAudiences.includes(input.target_audience)) {\n  errors.push(`target_audience \"${input.target_audience}\" is not one of: ${validAudiences.join(', ')}`);\n}\n\nif (errors.length > 0) {\n  const articleIdForError = input.article_id ?? 'UNKNOWN';\n  throw new Error(`[article_id=${articleIdForError}] Validation failed: ${errors.join('; ')}`);\n}\n\nconst master = {\n  article_id: input.article_id,\n  primary_keyword: String(input.primary_keyword).trim(),\n  format: input.format || null,\n  ai_provider: input.ai_provider,\n  target_audience: input.target_audience,\n  other_notes: input.other_notes && input.other_notes !== '-' ? input.other_notes : '',\n\n  pipeline_phase: '1_initialized',\n  created_at: new Date().toISOString(),\n\n  target_audience_document: null,\n  serp_data: null,\n  seo_brief: null,\n  internal_links: null,\n  selected_angle: null,\n  outline_options: null,\n  confirmed_outline: null,\n  section_drafts: [],\n  full_draft: null,\n  audit_notes: null,\n  output_doc_url: null,\n  tokens_used: { input: 0, output: 0, thinking: 0 },\n\n  errors: []\n};\n\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -544
+      ],
+      "id": "9c0181ca-1f0a-42d0-b194-15bd95c9ddf4",
+      "name": "Initialization"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PHYdX7GEecd_axlOd6lTEGr0Dxv3DrYcFFZ9Xc_M6no/edit?gid=1290337532#gid=1290337532",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PHYdX7GEecd_axlOd6lTEGr0Dxv3DrYcFFZ9Xc_M6no/edit?gid=1290337532#gid=1290337532",
+          "mode": "url"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "target_audience",
+              "lookupValue": "={{ $json.master.target_audience }}"
+            }
+          ]
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRange"
+            }
+          },
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1584,
+        -544
+      ],
+      "id": "a998a0e0-9459-4b08-b8ac-4a4ff590bb94",
+      "name": "Target Audience Definition",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fW8sPe3h0ZJc4qin",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "={{ $json.target_audience_document }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        -544
+      ],
+      "id": "e3cecab7-f029-4850-a040-46e17d2b8de0",
+      "name": "Get Target Audience Document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "twrC6hw1w4TC6MCJ",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const docResponse = $input.first().json;\nconst master = $('Initialization').first().json.master;\n\nconst personaText = (docResponse.content || '').trim();\n\nif (!personaText) {\n  throw new Error(\n    `[article_id=${master.article_id}] Persona doc for target_audience=\"${master.target_audience}\" is empty. Doc ID: ${docResponse.documentId || 'unknown'}`\n  );\n}\n\nmaster.target_audience_document = personaText;\nmaster.pipeline_phase = '2_persona_loaded';\n\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        -544
+      ],
+      "id": "811eab7f-ff6f-4e0d-a614-9f5b3b995200",
+      "name": "Combine data 1"
+    },
+    {
+      "parameters": {
+        "q": "={{ $('Initialization').item.json.master.primary_keyword }}",
+        "additionalFields": {
+          "num": "10"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        2256,
+        -544
+      ],
+      "id": "f362f19c-1464-4516-90c5-8542c7aa4c00",
+      "name": "KW & SERP Analysis",
+      "credentials": {
+        "serpApi": {
+          "id": "PqFpJdANZ839T3le",
+          "name": "SerpAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Finalize SERP Data\n// Extracts the parts of the SerpApi response that matter for SEO/GEO analysis\n// and folds them into the master object.\n\nconst serpRaw = $input.first().json;\nconst master = $('Combine data 1').first().json.master;\n\n// --- Helper: normalize an AI overview into a compact, consistent shape ---\nfunction extractAiOverview(ao) {\n  if (!ao) return null;\n  return {\n    text_blocks: (ao.text_blocks || []).map(b => ({\n      type: b.type || null,\n      snippet: b.snippet || null,\n      list: b.list || null\n    })),\n    references: (ao.references || []).map(r => ({\n      title: r.title || null,\n      link: r.link || null,\n      source: r.source || null,\n      index: r.index ?? null\n    }))\n  };\n}\n\n// --- Top 10 organic results, trimmed ---\nconst organic = (serpRaw.organic_results || []).slice(0, 10).map(r => ({\n  position: r.position,\n  title: r.title,\n  link: r.link,\n  displayed_link: r.displayed_link,\n  snippet: r.snippet,\n  source: r.source || null,\n  date: r.date || null\n}));\n\n// --- People Also Ask ---\nconst paa = (serpRaw.related_questions || []).map(q => ({\n  question: q.question,\n  snippet: q.snippet || null,\n  link: q.link || null,\n  list: q.list || null\n}));\n\n// --- Related searches ---\nconst relatedSearches = (serpRaw.related_searches || []).map(s => s.query);\n\n// --- Main AI Overview (top of SERP) ---\nconst aiOverview = extractAiOverview(serpRaw.ai_overview);\n\n// --- Topical AI Overviews nested inside knowledge_graph ---\n// These are full AI Overviews for derivative queries like\n// \"what is the future of X\", \"what are the types of X\", etc.\nconst topicalOverviews = {};\nif (serpRaw.knowledge_graph) {\n  for (const [key, node] of Object.entries(serpRaw.knowledge_graph)) {\n    if (node && typeof node === 'object' && node.ai_overview) {\n      topicalOverviews[key] = {\n        link: node.link || null,\n        ai_overview: extractAiOverview(node.ai_overview)\n      };\n    }\n  }\n}\n\n// --- Inline videos ---\nconst inlineVideos = (serpRaw.inline_videos || []).map(v => ({\n  position: v.position,\n  title: v.title,\n  link: v.link,\n  channel: v.channel || null,\n  duration: v.duration || null,\n  date: v.date || null,\n  snippet: v.snippet || null,\n  platform: v.platform || null\n}));\n\n// --- Perspectives (social/editorial takes: LinkedIn, YouTube, Reddit, X, etc.) ---\nconst perspectives = (serpRaw.perspectives || []).map(p => ({\n  author: p.author || null,\n  author_description: p.author_description || null,\n  source: p.source || null,\n  title: p.title || null,\n  snippet: p.snippet || null,\n  link: p.link || null,\n  date: p.date || null,\n  engagement: Array.isArray(p.extensions) ? p.extensions.join(', ') : null\n}));\n\n// --- SERP features (presence flags) ---\nconst features = {\n  ai_overview: !!aiOverview,\n  topical_ai_overviews_count: Object.keys(topicalOverviews).length,\n  featured_snippet: !!serpRaw.answer_box,\n  answer_box: serpRaw.answer_box || null,\n  knowledge_graph: !!serpRaw.knowledge_graph,\n  inline_videos: inlineVideos.length > 0,\n  inline_images: Array.isArray(serpRaw.inline_images) && serpRaw.inline_images.length > 0,\n  top_stories: Array.isArray(serpRaw.top_stories) && serpRaw.top_stories.length > 0,\n  shopping_results: Array.isArray(serpRaw.shopping_results) && serpRaw.shopping_results.length > 0,\n  local_results: !!serpRaw.local_results,\n  people_also_ask_present: paa.length > 0,\n  related_searches_present: relatedSearches.length > 0,\n  perspectives_present: perspectives.length > 0\n};\n\n// --- Store in master ---\nmaster.serp_data = {\n  query_used: serpRaw.search_parameters?.q || master.primary_keyword,\n  search_metadata: {\n    total_results: serpRaw.search_information?.total_results || null,\n    time_taken: serpRaw.search_information?.time_taken_displayed || null,\n    fetched_at: new Date().toISOString()\n  },\n  ai_overview: aiOverview,\n  topical_ai_overviews: topicalOverviews,\n  organic_results: organic,\n  people_also_ask: paa,\n  related_searches: relatedSearches,\n  inline_videos: inlineVideos,\n  perspectives: perspectives,\n  serp_features: features\n};\n\nmaster.pipeline_phase = '3_serp_collected';\n\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        -544
+      ],
+      "id": "8b23a066-0842-40a5-8059-788fcb3e9685",
+      "name": "Clean SERP Data & Combine"
+    },
+    {
+      "parameters": {
+        "jsCode": "const master = $input.first().json.master;\n\nconst systemPrompt = `You are a senior SEO and Generative Engine Optimization (GEO) strategist building a content brief that will guide downstream LLM-driven content generation. Your output is not a report for humans — it is a directive that other LLMs will read and execute against.\n\n# Your input\n\nYou receive a master object containing primary_keyword, format, target_audience, target_audience_document (full persona prose — read carefully), other_notes (PRIORITY editorial constraints), and serp_data.\n\n# Your job\n\nSynthesize all this into a brief for downstream LLMs. The brief must be specific to this primary keyword, audience, and format. Generic GEO/SEO advice is failure.\n\n# Output format\n\nPlain text around 500 words. Use these exact sections:\n\nStrategic Guidance\nGEO Directives\nCompetitive Summary\nSecondary Keywords\nCompetitor Headline Patterns\nPAA to Address\nTopical Coverage\nPerspectives to Reference\nRecommended Length\nConstraints Checklist\n\n# Quality bar\n\n- Could this brief have been written without reading the persona doc? If yes, you failed the persona.\n- Does my strategic guidance read like generic SEO advice? If yes, rewrite.\n- Have I cited specific perspectives/sources by name and URL? If no, do so.\n- Does my advice respect other_notes?\n\nBe decisive. Downstream LLMs need clear instructions, not options.`;\n\nreturn {\n  json: {\n    provider: master.ai_provider,\n    system_prompt: systemPrompt,\n    user_message: JSON.stringify(master),\n    response_format: 'text',\n    article_id: master.article_id,\n    _master: master  // stash for re-merge after the router\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2704,
+        -544
+      ],
+      "id": "36905628-a47d-42f7-9186-591c09e486ba",
+      "name": "Build AI Prompt"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "UGwxMdjK4wo3M5Fc",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/UGwxMdjK4wo3M5Fc",
+          "cachedResultName": "LLM Chain Router"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "provider": "={{ $json.provider }}",
+            "system_prompt": "={{ $json.system_prompt }}",
+            "user_message": "={{ $json.user_message }}",
+            "response_format": "={{ $json.response_format }}",
+            "article_id": "={{ $json.article_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "provider",
+              "displayName": "provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "system_prompt",
+              "displayName": "system_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "user_message",
+              "displayName": "user_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "response_format",
+              "displayName": "response_format",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "article_id",
+              "displayName": "article_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        -544
+      ],
+      "id": "c30e3d94-2efa-4fb5-acd4-bab5cb8e0f4d",
+      "name": "Call 'LLM Chain Router'"
+    },
+    {
+      "parameters": {
+        "jsCode": "const routerOutput = $input.first().json;\nconst master = $('Build AI Prompt').first().json._master;\n\nmaster.seo_brief = routerOutput.response;\nmaster.tokens_used.input += routerOutput.tokens_used.input;\nmaster.tokens_used.output += routerOutput.tokens_used.output;\nmaster.tokens_used.thinking += routerOutput.tokens_used.thinking;\nmaster.pipeline_phase = '4_brief_generated';\n\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3152,
+        -544
+      ],
+      "id": "4c4b9c73-a775-4a77-b843-79251efbf132",
+      "name": "Merge SEO Brief with Master Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const master = $input.first().json.master;\n\nconst slug = master.primary_keyword\n  .toLowerCase()\n  .trim()\n  .replace(/[^a-z0-9\\s-]/g, '')\n  .replace(/\\s+/g, '-')\n  .replace(/-+/g, '-')\n  .slice(0, 60);\n\nmaster.article_folder_name = `${master.article_id}_${slug}`;\n\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        -544
+      ],
+      "id": "ec046ad5-6820-408b-b17b-476306e67b30",
+      "name": "Slugify Keyword"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PHYdX7GEecd_axlOd6lTEGr0Dxv3DrYcFFZ9Xc_M6no/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PHYdX7GEecd_axlOd6lTEGr0Dxv3DrYcFFZ9Xc_M6no/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "root_folder": "={{ $json.master.article_folder_url }}",
+            "article_id": "={{ $json.master.article_id }}"
+          },
+          "matchingColumns": [
+            "article_id"
+          ],
+          "schema": [
+            {
+              "id": "article_id",
+              "displayName": "article_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "primary_keyword",
+              "displayName": "primary_keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "format",
+              "displayName": "format",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_provider",
+              "displayName": "ai_provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "target_audience",
+              "displayName": "target_audience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "other_notes",
+              "displayName": "other_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "action",
+              "displayName": "action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "root_folder",
+              "displayName": "root_folder",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "current folder",
+              "displayName": "current folder",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "last_run_at",
+              "displayName": "last_run_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "output_doc_url",
+              "displayName": "output_doc_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "run_count",
+              "displayName": "run_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "publication_status",
+              "displayName": "publication_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1136,
+        -544
+      ],
+      "id": "d047c1ea-5e91-465b-8465-d6faa6bcbe4e",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fW8sPe3h0ZJc4qin",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.master.article_folder_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/folders/1BeKvpfMMpj6DCv3qelujrRRFWYU56GAU",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        688,
+        -544
+      ],
+      "id": "077b3a9b-a021-4880-82f3-2747375dda27",
+      "name": "Create Article Root Folder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "rT3iGsNWQp8C05Rl",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const master = $('Slugify Keyword').first().json.master;\nconst articleFolder = $('Create Article Root Folder').first().json;\n\nmaster.article_folder_url = `https://drive.google.com/drive/folders/${articleFolder.id}`;\nmaster.article_folder_id = articleFolder.id;\n\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        -544
+      ],
+      "id": "0dc9bcf2-8872-43ac-91ab-31968ea91b28",
+      "name": "GDrive Folder URL Update"
+    },
+    {
+      "parameters": {
+        "jsCode": "const master = $('GDrive Folder URL Update').first().json.master;\nreturn { json: { master } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -544
+      ],
+      "id": "a8475b2a-261c-4fae-bfeb-087633a7f087",
+      "name": "Restore Master Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter Affected Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Affected Rows": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Initialization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialization": {
+      "main": [
+        [
+          {
+            "node": "Slugify Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Target Audience Definition": {
+      "main": [
+        [
+          {
+            "node": "Get Target Audience Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Target Audience Document": {
+      "main": [
+        [
+          {
+            "node": "Combine data 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine data 1": {
+      "main": [
+        [
+          {
+            "node": "KW & SERP Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KW & SERP Analysis": {
+      "main": [
+        [
+          {
+            "node": "Clean SERP Data & Combine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean SERP Data & Combine": {
+      "main": [
+        [
+          {
+            "node": "Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call 'LLM Chain Router'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'LLM Chain Router'": {
+      "main": [
+        [
+          {
+            "node": "Merge SEO Brief with Master Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slugify Keyword": {
+      "main": [
+        [
+          {
+            "node": "Create Article Root Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Restore Master Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Article Root Folder": {
+      "main": [
+        [
+          {
+            "node": "GDrive Folder URL Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GDrive Folder URL Update": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Master Data": {
+      "main": [
+        [
+          {
+            "node": "Target Audience Definition",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9cba6cad-dbdf-4cad-b26c-2a2b276f1739",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "57a404ebf992d64b019cbc68529b79763a62fc7c9fbf32187d4db67e051c409c"
+  },
+  "id": "3fOcoWUpXGHsh45B",
+  "tags": []
+}
